@@ -1,0 +1,9 @@
+import * as React from "react"
+
+import { I18nContext } from "./context"
+
+export function useI18n() {
+  const ctx = React.useContext(I18nContext)
+  if (!ctx) throw new Error("useI18n must be used within an I18nProvider")
+  return ctx
+}
