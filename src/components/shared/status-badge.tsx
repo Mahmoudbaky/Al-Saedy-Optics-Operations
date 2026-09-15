@@ -7,8 +7,8 @@ type BadgeVariant = NonNullable<React.ComponentProps<typeof Badge>["variant"]>
 const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   pending: "warning",
   confirmed: "info",
-  in_lab: "secondary",
-  on_the_way: "info",
+  lab: "secondary",
+  onTheWay: "info",
   ready: "neutral",
   delivered: "success",
   cancelled: "neutral",
@@ -18,7 +18,7 @@ function OrderStatusBadge({ status }: { status: OrderStatus }) {
   const { t } = useI18n()
   return (
     <Badge variant={ORDER_STATUS_VARIANT[status]}>
-      {status === "on_the_way" ? (
+      {status === "onTheWay" ? (
         <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
       ) : null}
       {t(`status.${status}`)}
@@ -30,6 +30,7 @@ const RX_STATUS_VARIANT: Record<PrescriptionStatus, BadgeVariant> = {
   verified: "success",
   pending: "warning",
   rejected: "critical",
+  expired: "neutral",
 }
 
 function RxStatusBadge({ status }: { status: PrescriptionStatus | null }) {
@@ -52,7 +53,7 @@ function UserStatusBadge({ status }: { status: UserStatus }) {
 function UserRoleLabel({ role }: { role: UserRole }) {
   const { t } = useI18n()
   if (role === "admin") return <Badge variant="secondary">{t("role.admin")}</Badge>
-  return <span className="text-[13px] text-muted-foreground">{t("role.customer")}</span>
+  return <span className="text-[13px] text-muted-foreground">{t("role.user")}</span>
 }
 
 export { OrderStatusBadge, RxStatusBadge, UserStatusBadge, UserRoleLabel }

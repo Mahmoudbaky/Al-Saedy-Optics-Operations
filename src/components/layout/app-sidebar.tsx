@@ -25,6 +25,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { useDashboardOverview } from "@/api"
+import { useAuth } from "@/auth"
 import { useI18n } from "@/lib/i18n"
 import { initials } from "@/lib/utils"
 import { navGroups } from "./nav-items"
@@ -33,6 +35,13 @@ function AppSidebar() {
   const { t, n, dir } = useI18n()
   const { pathname } = useLocation()
   const { isMobile } = useSidebar()
+  const { user, signOut } = useAuth()
+  const overview = useDashboardOverview()
+  // Live queue counts for the red badges (orders needing action, prescriptions to verify).
+  const badges: Record<string, number | undefined> = {
+    "/orders": overview.data?.orders.needsAction,
+    "/prescriptions": overview.data?.clinic.pendingPrescriptions,
+  }
 
   return (
     <Sidebar side={dir === "rtl" ? "right" : "left"} collapsible="icon">
@@ -71,9 +80,9 @@ function AppSidebar() {
                         <item.icon />
                         <span>{t(item.labelKey)}</span>
                       </SidebarMenuButton>
-                      {item.badge ? (
+                      {badges[item.to] ? (
                         <SidebarMenuBadge className="rounded-sm bg-sidebar-primary px-1.5 text-[11px] font-semibold text-sidebar-primary-foreground">
-                          {n(item.badge)}
+                          {n(badges[item.to]!)}
                         </SidebarMenuBadge>
                       ) : null}
                     </SidebarMenuItem>
@@ -99,14 +108,16 @@ function AppSidebar() {
               >
                 <Avatar className="size-8">
                   <AvatarFallback className="bg-[#0d2340] text-[13px] font-semibold text-white">
-                    {initials(t("user.name"))}
+                    {initials(user?.name ?? "")}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-1 flex-col text-start leading-tight">
-                  <span className="text-[13px] font-semibold text-sidebar-accent-foreground">
-                    {t("user.name")}
+                  <span className="truncate text-[13px] font-semibold text-sidebar-accent-foreground">
+                    {user?.name}
                   </span>
-                  <span className="text-[11px] text-sidebar-foreground/70">{t("user.role")}</span>
+                  <span className="truncate text-[11px] text-sidebar-foreground/70" dir="ltr">
+                    {user?.email}
+                  </span>
                 </div>
                 <ChevronsUpDownIcon className="ms-auto" />
               </DropdownMenuTrigger>
@@ -123,7 +134,7 @@ function AppSidebar() {
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void signOut()}>
                     <LogOutIcon />
                     {t("user.signOut")}
                   </DropdownMenuItem>

@@ -1,9 +1,9 @@
 import * as React from "react"
 import { useSearchParams } from "react-router"
 
-import type { DeliveryMethod, Order, OrderStatus, PaymentStatus } from "@/types"
+import type { DeliveryMethod, OrderListQuery, OrderStatus, PaymentStatus } from "@/api/types"
 
-export const SAVED_VIEWS = ["needs_action", "all", "in_lab", "out_for_delivery", "unpaid_cod"] as const
+export const SAVED_VIEWS = ["needs_action", "all", "lab", "out_for_delivery", "unpaid_cod"] as const
 export type SavedView = (typeof SAVED_VIEWS)[number]
 
 export type StatusFilter = OrderStatus | "any"
@@ -18,6 +18,8 @@ export interface OrdersFilters {
   delivery: DeliveryFilter
   from: string
   to: string
+  page: number
+  pageSize: number
 }
 
 const DEFAULTS: OrdersFilters = {
@@ -28,21 +30,40 @@ const DEFAULTS: OrdersFilters = {
   delivery: "any",
   from: "",
   to: "",
+  page: 1,
+  pageSize: 25,
 }
 
-const NEEDS_ACTION: ReadonlySet<OrderStatus> = new Set(["pending", "confirmed", "in_lab"])
-
-/** Saved views are just presets over the same filters the API accepts. */
-const VIEW_PREDICATE: Record<SavedView, (o: Order) => boolean> = {
-  needs_action: (o) => NEEDS_ACTION.has(o.status),
-  all: () => true,
-  in_lab: (o) => o.status === "in_lab",
-  out_for_delivery: (o) => o.status === "on_the_way",
-  unpaid_cod: (o) => o.paymentMethod === "cod" && o.paymentStatus === "unpaid" && o.status === "delivered",
+/**
+ * Saved views are presets over the filters `GET /admin/orders` accepts. The API takes a
+ * single `status`, so "needs action" (pending+confirmed+lab) is fetched as one query per status.
+ */
+export const VIEW_QUERY: Record<SavedView, Partial<OrderListQuery>[]> = {
+  needs_action: [{ status: "pending" }, { status: "confirmed" }, { status: "lab" }],
+  all: [{}],
+  lab: [{ status: "lab" }],
+  out_for_delivery: [{ status: "onTheWay" }],
+  unpaid_cod: [{ status: "delivered", paymentStatus: "unpaid" }],
 }
 
 function isSavedView(value: string | null): value is SavedView {
   return SAVED_VIEWS.includes(value as SavedView)
+}
+
+const toIso = (date: string, endOfDay: boolean) => (date ? new Date(`${date}T${endOfDay ? "23:59:59.999" : "00:00:00"}`).toISOString() : undefined)
+
+/** Translates the URL filters into the query string the backend expects. */
+export function toOrderQuery(f: OrdersFilters): OrderListQuery {
+  return {
+    status: f.status === "any" ? undefined : f.status,
+    paymentStatus: f.payment === "any" ? undefined : f.payment,
+    deliveryMethod: f.delivery === "any" ? undefined : f.delivery,
+    search: f.query.trim() || undefined,
+    from: toIso(f.from, false),
+    to: toIso(f.to, true),
+    page: f.page,
+    limit: f.pageSize,
+  }
 }
 
 /** Filters live in the URL so a view can be shared or linked from the overview. */
@@ -59,6 +80,8 @@ export function useOrdersFilters() {
       delivery: (params.get("delivery") as DeliveryFilter | null) ?? DEFAULTS.delivery,
       from: params.get("from") ?? DEFAULTS.from,
       to: params.get("to") ?? DEFAULTS.to,
+      page: Math.max(1, Number(params.get("page")) || DEFAULTS.page),
+      pageSize: Number(params.get("limit")) || DEFAULTS.pageSize,
     }
   }, [params])
 
@@ -75,10 +98,14 @@ export function useOrdersFilters() {
             delivery: "delivery",
             from: "from",
             to: "to",
+            page: "page",
+            pageSize: "limit",
           }
-          for (const [field, value] of Object.entries(patch) as Array<[keyof OrdersFilters, string]>) {
+          // Any filter change restarts pagination unless the page itself is being set.
+          const withPage = "page" in patch ? patch : { ...patch, page: DEFAULTS.page }
+          for (const [field, value] of Object.entries(withPage) as Array<[keyof OrdersFilters, string | number]>) {
             if (value === DEFAULTS[field]) next.delete(keys[field])
-            else next.set(keys[field], value)
+            else next.set(keys[field], String(value))
           }
           return next
         },
@@ -97,30 +124,4 @@ export function useOrdersFilters() {
     Number(Boolean(filters.from || filters.to))
 
   return { filters, update, clear, activeFilterCount }
-}
-
-export function applyOrdersFilters(orders: Order[], f: OrdersFilters): Order[] {
-  const q = f.query.trim().toLowerCase()
-  return orders.filter((o) => {
-    if (!VIEW_PREDICATE[f.view](o)) return false
-    if (f.status !== "any" && o.status !== f.status) return false
-    if (f.payment !== "any" && o.paymentStatus !== f.payment) return false
-    if (f.delivery !== "any" && o.deliveryMethod !== f.delivery) return false
-    if (f.from && o.placedAt < f.from) return false
-    if (f.to && o.placedAt.slice(0, 10) > f.to) return false
-    if (q) {
-      const haystack = `${o.number} ${o.customer.name} ${o.customer.phone}`.toLowerCase()
-      if (!haystack.includes(q)) return false
-    }
-    return true
-  })
-}
-
-/** Counts shown on the saved-view chips come from the API summary, not the page. */
-export const VIEW_COUNTS: Record<SavedView, number> = {
-  needs_action: 34,
-  all: 396,
-  in_lab: 9,
-  out_for_delivery: 7,
-  unpaid_cod: 6,
 }

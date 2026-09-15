@@ -59,3 +59,17 @@ The brand book's tokens live in `src/index.css`:
 `BrandMark` renders `/public/logo-mark.png` and falls back to an inline monogram
 if the file is missing. Export `assets/logo-mark.png` from the design project
 into `public/` to show the real mark.
+
+## Backend connection
+
+The panel talks to the [Al-Saedy Optics backend](../Al-Saedy-Optics-backend) at `/api/v1/admin/*`
+(session cookie via Better Auth; only accounts with `role: admin` can sign in).
+
+- **Dev:** `pnpm dev` in the backend (port 3000; `CORS_ORIGINS` already lists `http://localhost:5173`), then `pnpm dev` here.
+- **URL:** copy `.env.example` to `.env.local` and set `VITE_API_URL` if the API is not on `http://localhost:3000`.
+  In production the panel and API must share a site (same registrable domain) so the `SameSite=Lax` cookie is sent.
+- **Admin account:** `ADMIN_EMAIL=… ADMIN_PASSWORD=… pnpm admin:create` in the backend, or promote a user from the Customers page.
+
+Code map: `src/api` (axios client with envelope/error interceptors, DTO types, TanStack Query hooks per resource) ·
+`src/auth` (Better Auth client, `AuthProvider`, `RequireAdmin` route guard, login page in `src/features/auth`) ·
+`docs/follow-up-pages.md` (admin APIs that still need screens).

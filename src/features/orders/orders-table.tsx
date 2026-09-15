@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenuGroup, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table"
-import { ORDERS_TOTAL_COUNT } from "@/data/orders"
+import type { PageMeta } from "@/api/types"
 import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import type { Order, PaymentStatus } from "@/types"
@@ -25,19 +25,24 @@ const PAYMENT_STATUS_TONE: Record<PaymentStatus, string> = {
 
 interface OrdersTableProps {
   orders: Order[]
+  meta: PageMeta | undefined
+  /** A refetch is in flight (page change) – dim the rows instead of unmounting them. */
+  busy?: boolean
   selectedIds: ReadonlySet<string>
   onToggle: (id: string, checked: boolean) => void
   onToggleAll: (checked: boolean) => void
   onOpen: (order: Order) => void
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
 }
 
-function OrdersTable({ orders, selectedIds, onToggle, onToggleAll, onOpen }: OrdersTableProps) {
+function OrdersTable({ orders, meta, busy = false, selectedIds, onToggle, onToggleAll, onOpen, onPageChange, onPageSizeChange }: OrdersTableProps) {
   const { t, n, id, relative } = useI18n()
   const allSelected = orders.length > 0 && orders.every((o) => selectedIds.has(o.id))
   const someSelected = !allSelected && orders.some((o) => selectedIds.has(o.id))
 
   return (
-    <Card className="gap-0 py-0">
+    <Card className={cn("gap-0 py-0 transition-opacity", busy && "opacity-60")}>
       <Table>
         <DataTableHeader>
           <TableRow>
@@ -83,15 +88,15 @@ function OrdersTable({ orders, selectedIds, onToggle, onToggleAll, onOpen }: Ord
                 <TableCell className="font-heading font-semibold">#{id(order.number)}</TableCell>
                 <TableCell className="max-w-0">
                   <div className="flex flex-col gap-0.5">
-                    <span className="truncate font-medium">{order.customer.name}</span>
+                    <span className="truncate font-medium">{order.user.name}</span>
                     <span className="text-[11px] text-muted-foreground" dir="ltr">
-                      {order.customer.phone}
+                      {order.user.phone ?? order.user.email}
                     </span>
                   </div>
                 </TableCell>
-                <TableCell className="text-end tabular-nums">{n(order.items.length)}</TableCell>
+                <TableCell className="text-end tabular-nums">{n(order.itemCount)}</TableCell>
                 <TableCell>
-                  <RxStatusBadge status={order.rxStatus} />
+                  <RxStatusBadge status={order.prescriptionStatus} />
                 </TableCell>
                 <TableCell className="text-end font-semibold tabular-nums">{n(order.total)}</TableCell>
                 <TableCell>
@@ -124,7 +129,7 @@ function OrdersTable({ orders, selectedIds, onToggle, onToggleAll, onOpen }: Ord
                         <CopyIcon />
                         {t("orders.copyNumber")}
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => window.print()}>
                         <PrinterIcon />
                         {t("orders.printTicket")}
                       </DropdownMenuItem>
@@ -136,14 +141,18 @@ function OrdersTable({ orders, selectedIds, onToggle, onToggleAll, onOpen }: Ord
           })}
         </TableBody>
       </Table>
-      <DataTablePagination
-        from={1}
-        to={orders.length}
-        total={ORDERS_TOTAL_COUNT}
-        page={1}
-        pageCount={Math.ceil(ORDERS_TOTAL_COUNT / 25)}
-        pageSize={25}
-      />
+      {meta ? (
+        <DataTablePagination
+          from={meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1}
+          to={Math.min(meta.page * meta.limit, meta.total)}
+          total={meta.total}
+          page={meta.page}
+          pageCount={Math.max(1, meta.pages)}
+          pageSize={meta.limit}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
+        />
+      ) : null}
     </Card>
   )
 }

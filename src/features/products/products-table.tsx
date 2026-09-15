@@ -1,8 +1,10 @@
-import { CopyIcon, PackagePlusIcon, PencilIcon, Trash2Icon } from "lucide-react"
+import { PackagePlusIcon, Trash2Icon } from "lucide-react"
 
+import type { PageMeta } from "@/api/types"
 import {
   DataTableHead,
   DataTableHeader,
+  DataTablePagination,
   DataTableRow,
 } from "@/components/shared/data-table"
 import { RowActionsMenu } from "@/components/shared/row-actions-menu"
@@ -18,17 +20,23 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { LOW_STOCK_THRESHOLD } from "@/data/products"
 import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
-import type { Product } from "@/types"
+import type { Product, ProductVariant } from "@/types"
 
 interface ProductsTableProps {
   products: Product[]
+  meta: PageMeta | undefined
+  busy?: boolean
+  lowStockThreshold: number
   selectedIds: ReadonlySet<string>
   onToggle: (id: string, checked: boolean) => void
   onToggleAll: (checked: boolean) => void
   onActiveChange: (product: Product, active: boolean) => void
+  onAdjustStock: (product: Product, variant: ProductVariant) => void
+  onDelete: (product: Product) => void
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
 }
 
 function ColumnHeaders() {
@@ -53,13 +61,26 @@ function ColumnHeaders() {
   )
 }
 
-function ProductsTable({ products, selectedIds, onToggle, onToggleAll, onActiveChange }: ProductsTableProps) {
-  const { t, n } = useI18n()
+function ProductsTable({
+  products,
+  meta,
+  busy = false,
+  lowStockThreshold,
+  selectedIds,
+  onToggle,
+  onToggleAll,
+  onActiveChange,
+  onAdjustStock,
+  onDelete,
+  onPageChange,
+  onPageSizeChange,
+}: ProductsTableProps) {
+  const { t, n, locale } = useI18n()
   const allSelected = products.length > 0 && products.every((p) => selectedIds.has(p.id))
   const someSelected = !allSelected && products.some((p) => selectedIds.has(p.id))
 
   return (
-    <Card className="gap-0 py-0">
+    <Card className={cn("gap-0 py-0 transition-opacity", busy && "opacity-60")}>
       <Table>
         <DataTableHeader>
           <TableRow>
@@ -81,24 +102,29 @@ function ProductsTable({ products, selectedIds, onToggle, onToggleAll, onActiveC
               <DataTableRow key={product.id} data-state={selected ? "selected" : undefined} className="h-[60px]">
                 <TableCell className="ps-4">
                   <Checkbox
-                    aria-label={`${t("common.selectRow")} ${product.name}`}
+                    aria-label={`${t("common.selectRow")} ${product.name.en}`}
                     checked={selected}
                     onCheckedChange={(checked) => onToggle(product.id, checked)}
                   />
                 </TableCell>
                 <TableCell>
-                  <span className="block size-10 rounded-sm border bg-muted" aria-hidden="true" />
+                  {product.image ? (
+                    <img src={product.image} alt="" className="block size-10 rounded-sm border object-cover" />
+                  ) : (
+                    <span className="block size-10 rounded-sm border bg-muted" aria-hidden="true" />
+                  )}
                 </TableCell>
                 <TableCell className="max-w-0">
                   <div className="flex flex-col gap-0.5">
-                    <span className="truncate font-medium">{product.name}</span>
+                    <span className="truncate font-medium">{product.name[locale]}</span>
                     <span className="truncate text-[11px] text-muted-foreground">
-                      {product.modelCode} · <span lang="ar">{product.nameAr}</span>
+                      {product.code ? `${product.code} · ` : ""}
+                      <span lang={locale === "ar" ? "en" : "ar"}>{locale === "ar" ? product.name.en : product.name.ar}</span>
                     </span>
                   </div>
                 </TableCell>
-                <TableCell className="text-[13px]">{t(`category.${product.category}`)}</TableCell>
-                <TableCell className="text-[13px]">{product.brand ?? t("common.none")}</TableCell>
+                <TableCell className="text-[13px]">{product.category.name[locale]}</TableCell>
+                <TableCell className="text-[13px]">{product.brand?.name[locale] ?? t("common.none")}</TableCell>
                 <TableCell className="text-end">
                   <div className="flex flex-col">
                     <span className="font-semibold tabular-nums">{n(product.price)}</span>
@@ -109,27 +135,28 @@ function ProductsTable({ products, selectedIds, onToggle, onToggleAll, onActiveC
                 </TableCell>
                 <TableCell>
                   <ul className="flex items-center gap-2.5" aria-label={t("products.col.colours")}>
-                    {product.colours.map((colour) => {
-                      const low = colour.stock <= LOW_STOCK_THRESHOLD
+                    {product.variants.map((variant) => {
+                      const low = variant.stock <= lowStockThreshold
                       return (
-                        <li key={colour.id}>
+                        <li key={variant.id}>
                           <Tooltip>
                             <TooltipTrigger
-                              render={<span className="flex cursor-default items-center gap-1" />}
+                              render={
+                                <button
+                                  type="button"
+                                  className={cn("flex items-center gap-1 rounded-sm px-0.5 hover:bg-muted", !variant.isActive && "opacity-40")}
+                                  onClick={() => onAdjustStock(product, variant)}
+                                  aria-label={t("products.adjustStock")}
+                                />
+                              }
                             >
-                              <span
-                                className="size-3.5 rounded-full border"
-                                style={{ backgroundColor: colour.hex }}
-                                aria-hidden="true"
-                              />
-                              <span
-                                className={cn("text-[11px] tabular-nums", low ? "font-semibold text-critical" : "text-muted-foreground")}
-                              >
-                                {n(colour.stock)}
+                              <span className="size-3.5 rounded-full border" style={{ backgroundColor: variant.colorHex }} aria-hidden="true" />
+                              <span className={cn("text-[11px] tabular-nums", low ? "font-semibold text-critical" : "text-muted-foreground")}>
+                                {n(variant.stock)}
                               </span>
                             </TooltipTrigger>
                             <TooltipContent>
-                              {colour.name} · {t("products.stockUnits", { n: colour.stock })}
+                              {variant.colorName?.[locale] ?? variant.colorHex} · {t("products.stockUnits", { n: variant.stock })}
                             </TooltipContent>
                           </Tooltip>
                         </li>
@@ -146,7 +173,7 @@ function ProductsTable({ products, selectedIds, onToggle, onToggleAll, onActiveC
                 </TableCell>
                 <TableCell className="text-center">
                   <Switch
-                    aria-label={`${t("products.col.active")}: ${product.name}`}
+                    aria-label={`${t("products.col.active")}: ${product.name.en}`}
                     checked={product.isActive}
                     onCheckedChange={(checked) => onActiveChange(product, checked)}
                   />
@@ -154,22 +181,16 @@ function ProductsTable({ products, selectedIds, onToggle, onToggleAll, onActiveC
                 <TableCell className="pe-3 text-center">
                   <RowActionsMenu>
                     <DropdownMenuGroup>
-                      <DropdownMenuItem>
-                        <PencilIcon />
-                        {t("products.edit")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <PackagePlusIcon />
-                        {t("products.adjustStock")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <CopyIcon />
-                        {t("products.duplicate")}
-                      </DropdownMenuItem>
+                      {product.variants[0] ? (
+                        <DropdownMenuItem onClick={() => onAdjustStock(product, product.variants[0]!)}>
+                          <PackagePlusIcon />
+                          {t("products.adjustStock")}
+                        </DropdownMenuItem>
+                      ) : null}
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />
                     <DropdownMenuGroup>
-                      <DropdownMenuItem variant="destructive">
+                      <DropdownMenuItem variant="destructive" onClick={() => onDelete(product)}>
                         <Trash2Icon />
                         {t("products.delete")}
                       </DropdownMenuItem>
@@ -181,6 +202,18 @@ function ProductsTable({ products, selectedIds, onToggle, onToggleAll, onActiveC
           })}
         </TableBody>
       </Table>
+      {meta ? (
+        <DataTablePagination
+          from={meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1}
+          to={Math.min(meta.page * meta.limit, meta.total)}
+          total={meta.total}
+          page={meta.page}
+          pageCount={Math.max(1, meta.pages)}
+          pageSize={meta.limit}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
+        />
+      ) : null}
     </Card>
   )
 }

@@ -1,6 +1,8 @@
-import { BanIcon, EyeIcon, FileTextIcon, ShieldCheckIcon, ShieldOffIcon, UserRoundSearchIcon } from "lucide-react"
+import { BanIcon, PackageIcon, ShieldCheckIcon, ShieldOffIcon, UserRoundSearchIcon } from "lucide-react"
+import { Link } from "react-router"
 
-import { DataTableHead, DataTableHeader } from "@/components/shared/data-table"
+import type { PageMeta } from "@/api/types"
+import { DataTableHead, DataTableHeader, DataTablePagination } from "@/components/shared/data-table"
 import { RowActionsMenu } from "@/components/shared/row-actions-menu"
 import { UserRoleLabel, UserStatusBadge } from "@/components/shared/status-badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -20,19 +22,22 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table"
-import { CUSTOMERS_TOTAL_COUNT } from "@/data/customers"
 import { useI18n } from "@/lib/i18n"
-import { initials } from "@/lib/utils"
+import { cn, initials } from "@/lib/utils"
 import type { Customer } from "@/types"
 
 interface CustomersTableProps {
   customers: Customer[]
+  meta: PageMeta | undefined
+  busy?: boolean
   onToggleRole: (customer: Customer) => void
   onToggleBan: (customer: Customer) => void
   onClearFilters: () => void
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
 }
 
-function CustomersTable({ customers, onToggleRole, onToggleBan, onClearFilters }: CustomersTableProps) {
+function CustomersTable({ customers, meta, busy = false, onToggleRole, onToggleBan, onClearFilters, onPageChange, onPageSizeChange }: CustomersTableProps) {
   const { t, n, relative, monthYear } = useI18n()
 
   if (customers.length === 0) {
@@ -50,9 +55,6 @@ function CustomersTable({ customers, onToggleRole, onToggleBan, onClearFilters }
             <Button variant="outline" size="lg" onClick={onClearFilters}>
               {t("common.clearFilters")}
             </Button>
-            <Button variant="ghost" size="lg">
-              {t("customers.invite")}
-            </Button>
           </EmptyContent>
         </Empty>
       </Card>
@@ -60,7 +62,7 @@ function CustomersTable({ customers, onToggleRole, onToggleBan, onClearFilters }
   }
 
   return (
-    <Card className="gap-0 py-0">
+    <Card className={cn("gap-0 py-0 transition-opacity", busy && "opacity-60")}>
       <Table>
         <DataTableHeader>
           <TableRow>
@@ -97,45 +99,38 @@ function CustomersTable({ customers, onToggleRole, onToggleBan, onClearFilters }
                 </div>
               </TableCell>
               <TableCell className="text-[13px]" dir="ltr">
-                {customer.phone}
+                {customer.phone ?? t("common.none")}
               </TableCell>
-              <TableCell className="text-[13px] uppercase">{customer.language}</TableCell>
+              <TableCell className="text-[13px] uppercase">{customer.locale}</TableCell>
               <TableCell>
                 <UserRoleLabel role={customer.role} />
               </TableCell>
-              <TableCell className="text-end tabular-nums">{n(customer.ordersCount)}</TableCell>
-              <TableCell className="text-end font-semibold tabular-nums">{n(customer.totalSpent)}</TableCell>
+              <TableCell className="text-end tabular-nums">{n(customer.stats.orders)}</TableCell>
+              <TableCell className="text-end font-semibold tabular-nums">{n(customer.stats.totalSpent)}</TableCell>
               <TableCell className="text-[13px] text-muted-foreground">
-                {customer.lastOrderAt ? relative(customer.lastOrderAt) : t("common.none")}
+                {customer.stats.lastOrderAt ? relative(customer.stats.lastOrderAt) : t("common.none")}
               </TableCell>
-              <TableCell className="text-[13px] text-muted-foreground">{monthYear(customer.joinedAt)}</TableCell>
+              <TableCell className="text-[13px] text-muted-foreground">{monthYear(customer.createdAt)}</TableCell>
               <TableCell>
-                <UserStatusBadge status={customer.status} />
+                <UserStatusBadge status={customer.banned ? "banned" : "active"} />
               </TableCell>
               <TableCell className="pe-3 text-center">
                 <RowActionsMenu>
                   <DropdownMenuGroup>
-                    <DropdownMenuItem>
-                      <EyeIcon />
+                    <DropdownMenuItem render={<Link to={`/orders?view=all&q=${encodeURIComponent(customer.email)}`} />}>
+                      <PackageIcon />
                       {t("customers.viewProfile")}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onToggleRole(customer)}>
                       {customer.role === "admin" ? <ShieldOffIcon /> : <ShieldCheckIcon />}
                       {customer.role === "admin" ? t("customers.demote") : t("customers.promote")}
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <FileTextIcon />
-                      {t("customers.rxOnFile")}
-                    </DropdownMenuItem>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      variant={customer.status === "banned" ? "default" : "destructive"}
-                      onClick={() => onToggleBan(customer)}
-                    >
+                    <DropdownMenuItem variant={customer.banned ? "default" : "destructive"} onClick={() => onToggleBan(customer)}>
                       <BanIcon />
-                      {customer.status === "banned" ? t("customers.unban") : t("customers.ban")}
+                      {customer.banned ? t("customers.unban") : t("customers.ban")}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                 </RowActionsMenu>
@@ -144,9 +139,18 @@ function CustomersTable({ customers, onToggleRole, onToggleBan, onClearFilters }
           ))}
         </TableBody>
       </Table>
-      <p className="bg-muted/60 px-4 py-3 text-[13px] text-muted-foreground">
-        {t("customers.rowsTotal", { from: 1, to: customers.length, total: CUSTOMERS_TOTAL_COUNT })}
-      </p>
+      {meta ? (
+        <DataTablePagination
+          from={meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1}
+          to={Math.min(meta.page * meta.limit, meta.total)}
+          total={meta.total}
+          page={meta.page}
+          pageCount={Math.max(1, meta.pages)}
+          pageSize={meta.limit}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
+        />
+      ) : null}
     </Card>
   )
 }

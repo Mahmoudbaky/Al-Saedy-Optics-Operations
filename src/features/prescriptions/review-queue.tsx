@@ -8,8 +8,8 @@ import type { Prescription, PrescriptionSource, PrescriptionStatus } from "@/typ
 
 const SOURCE_ICON: Record<PrescriptionSource, LucideIcon> = {
   upload: ImageIcon,
-  typed: KeyboardIcon,
-  exam: StethoscopeIcon,
+  manual: KeyboardIcon,
+  clinic: StethoscopeIcon,
 }
 
 export type SourceFilter = PrescriptionSource | "any"
@@ -17,6 +17,7 @@ export type RxStatusFilter = PrescriptionStatus | "any"
 
 interface ReviewQueueProps {
   items: Prescription[]
+  loading?: boolean
   pendingCount: number
   selectedId: string | null
   onSelect: (id: string) => void
@@ -29,6 +30,7 @@ interface ReviewQueueProps {
 /** Left rail: pending prescriptions sorted by longest wait. */
 function ReviewQueue({
   items,
+  loading = false,
   pendingCount,
   selectedId,
   onSelect,
@@ -43,13 +45,14 @@ function ReviewQueue({
     { value: "pending", label: t("rx.pending") },
     { value: "verified", label: t("rx.verified") },
     { value: "rejected", label: t("rx.rejected") },
+    { value: "expired", label: t("rx.expired") },
     { value: "any", label: t("common.any") },
   ]
   const sourceOptions: FilterOption<SourceFilter>[] = [
     { value: "any", label: t("common.any") },
     { value: "upload", label: t("rx.source.upload") },
-    { value: "typed", label: t("rx.source.typed") },
-    { value: "exam", label: t("rx.source.exam") },
+    { value: "manual", label: t("rx.source.manual") },
+    { value: "clinic", label: t("rx.source.clinic") },
   ]
 
   return (
@@ -65,7 +68,8 @@ function ReviewQueue({
         </div>
       </div>
 
-      <ul className="flex flex-col overflow-y-auto" role="listbox" aria-label={t("rx.queue")}>
+      <ul className="flex flex-col overflow-y-auto" role="listbox" aria-label={t("rx.queue")} aria-busy={loading || undefined}>
+        {loading ? <li className="px-4 py-3 text-[13px] text-muted-foreground">{t("common.loading")}</li> : null}
         {items.map((rx) => {
           const Icon = SOURCE_ICON[rx.source]
           const selected = rx.id === selectedId
@@ -83,9 +87,9 @@ function ReviewQueue({
                   <Icon className="size-4" aria-hidden="true" />
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="text-sm font-medium">{rx.customerName}</span>
+                  <span className="text-sm font-medium">{rx.user.name}</span>
                   <span className="text-[11px] text-muted-foreground">
-                    {t(`rx.source.${rx.source}`)} · {waitingSince(rx.submittedAt)}
+                    {t(`rx.source.${rx.source}`)} · {rx.status === "pending" ? waitingSince(rx.createdAt) : t(`rx.${rx.status}`)}
                   </span>
                 </span>
                 {selected ? <Badge variant="secondary">{t("rx.open")}</Badge> : null}

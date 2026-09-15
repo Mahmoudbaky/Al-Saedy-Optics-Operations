@@ -22,7 +22,7 @@ interface DeleteAddonDialogProps {
 
 /** DELETE /admin/lens-addons/:id — destructive, so it asks first. */
 function DeleteAddonDialog({ addon, onOpenChange, onConfirm }: DeleteAddonDialogProps) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   return (
     <AlertDialog open={addon !== null} onOpenChange={onOpenChange}>
       <AlertDialogContent className="sm:max-w-[480px]">
@@ -31,10 +31,10 @@ function DeleteAddonDialog({ addon, onOpenChange, onConfirm }: DeleteAddonDialog
             <Trash2Icon />
           </AlertDialogMedia>
           <AlertDialogTitle className="text-lg font-bold">
-            {t("addons.deleteTitle", { name: addon?.nameEn ?? "" })}
+            {t("addons.deleteTitle", { name: addon?.name[locale] ?? "" })}
           </AlertDialogTitle>
           <AlertDialogDescription className="leading-relaxed">
-            {t("addons.deleteBody", { n: addon?.pastOrdersCount ?? 0 })}
+            {t("addons.deleteBody")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

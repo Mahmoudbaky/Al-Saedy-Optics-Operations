@@ -37,9 +37,9 @@ export interface RxFormValues {
 }
 
 const toForm = (eye: EyeValues): EyeForm => ({
-  sph: eye.sph === null ? "" : eye.sph.toFixed(2),
-  cyl: eye.cyl === null ? "" : eye.cyl.toFixed(2),
-  axis: eye.axis === null ? "" : String(eye.axis),
+  sph: eye.sph ?? "",
+  cyl: eye.cyl ?? "",
+  axis: eye.axis ?? "",
 })
 
 function initialValues(rx: Prescription): RxFormValues {
@@ -51,7 +51,7 @@ function initialValues(rx: Prescription): RxFormValues {
     doctorName: rx.doctorName ?? "",
     issuedOn: rx.issuedOn ?? "",
     expiresOn: rx.expiresOn ?? "",
-    note: "",
+    note: rx.reviewNote ?? "",
   }
 }
 
@@ -64,13 +64,14 @@ function axisError(eye: EyeForm): boolean {
 
 interface RxReviewFormProps {
   prescription: Prescription
+  submitting?: boolean
   onVerify: (values: RxFormValues) => void
   onReject: (values: RxFormValues) => void
 }
 
 /** POST /admin/prescriptions/:id/review — corrections are saved back onto the Rx. */
-function RxReviewForm({ prescription, onVerify, onReject }: RxReviewFormProps) {
-  const { t, id } = useI18n()
+function RxReviewForm({ prescription, submitting = false, onVerify, onReject }: RxReviewFormProps) {
+  const { t, id, relative } = useI18n()
   const [values, setValues] = React.useState(() => initialValues(prescription))
 
   const setEye = (eye: Eye, field: EyeField, value: string) =>
@@ -128,10 +129,10 @@ function RxReviewForm({ prescription, onVerify, onReject }: RxReviewFormProps) {
   return (
     <div className="flex w-full shrink-0 flex-col gap-3.5 xl:w-[560px]">
       <div className="flex flex-wrap items-center gap-2.5">
-        <h2 className="font-heading text-lg font-semibold">{prescription.customerName}</h2>
+        <h2 className="font-heading text-lg font-semibold">{prescription.user.name}</h2>
         <RxStatusBadge status={prescription.status} />
         <span className="ms-auto text-[13px] text-muted-foreground">
-          {t("rx.history", { previous: prescription.previousCount, expired: prescription.expiredCount })}
+          {t("rx.submitted", { time: relative(prescription.createdAt) })}
         </span>
       </div>
 
@@ -200,11 +201,11 @@ function RxReviewForm({ prescription, onVerify, onReject }: RxReviewFormProps) {
               ? t("rx.waitingOrder", { number: id(prescription.waitingOrderNumber) })
               : t("rx.noWaitingOrder")}
           </span>
-          <Button variant="outline" size="lg" onClick={() => onReject(values)}>
+          <Button variant="outline" size="lg" disabled={submitting} onClick={() => onReject(values)}>
             <XIcon data-icon="inline-start" />
             {t("rx.reject")}
           </Button>
-          <Button size="lg" disabled={invalid} onClick={() => onVerify(values)}>
+          <Button size="lg" disabled={invalid || submitting} onClick={() => onVerify(values)}>
             <ShieldCheckIcon data-icon="inline-start" />
             {t("rx.verify")}
           </Button>

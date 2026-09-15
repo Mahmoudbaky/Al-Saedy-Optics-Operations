@@ -8,8 +8,8 @@ import type { OrderStatus } from "@/types"
 const STATUS_BAR: Record<OrderStatus, string> = {
   pending: "**:data-[slot=progress-indicator]:bg-primary",
   confirmed: "**:data-[slot=progress-indicator]:bg-chart-1",
-  in_lab: "**:data-[slot=progress-indicator]:bg-chart-1",
-  on_the_way: "**:data-[slot=progress-indicator]:bg-chart-4",
+  lab: "**:data-[slot=progress-indicator]:bg-chart-1",
+  onTheWay: "**:data-[slot=progress-indicator]:bg-chart-4",
   ready: "**:data-[slot=progress-indicator]:bg-chart-5",
   delivered: "**:data-[slot=progress-indicator]:bg-[#d0d3d4]",
   cancelled: "**:data-[slot=progress-indicator]:bg-[#aeb3b5]",
@@ -27,9 +27,10 @@ function OrdersByStatus({ data }: OrdersByStatusProps) {
   // The live pipeline scales against twice its largest queue so the bars stay
   // short and comparable; terminal states, which dwarf it, use their own scale.
   const live = data.filter((d) => !TERMINAL.has(d.status))
-  const liveMax = Math.max(...live.map((d) => d.count))
-  const delivered = data.find((d) => d.status === "delivered")?.count ?? 1
+  const liveMax = Math.max(1, ...live.map((d) => d.count))
+  const delivered = Math.max(1, data.find((d) => d.status === "delivered")?.count ?? 0)
   const percent = (status: OrderStatus, count: number) => {
+    if (count === 0) return 0
     if (status === "delivered") return 100
     if (status === "cancelled") return Math.max(4, Math.round((count / delivered) * 100))
     return Math.round((count / (liveMax * 2)) * 100)

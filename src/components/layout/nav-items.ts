@@ -14,8 +14,6 @@ export interface NavItem {
   to: string
   labelKey: MessageKey
   icon: LucideIcon
-  /** Live count surfaced as a red badge (orders needing action, Rx to verify). */
-  badge?: number
 }
 
 export interface NavGroup {
@@ -28,8 +26,8 @@ export const navGroups: NavGroup[] = [
     labelKey: "nav.operations",
     items: [
       { to: "/", labelKey: "nav.overview", icon: LayoutDashboardIcon },
-      { to: "/orders", labelKey: "nav.orders", icon: PackageIcon, badge: 34 },
-      { to: "/prescriptions", labelKey: "nav.prescriptions", icon: FileTextIcon, badge: 12 },
+      { to: "/orders", labelKey: "nav.orders", icon: PackageIcon },
+      { to: "/prescriptions", labelKey: "nav.prescriptions", icon: FileTextIcon },
     ],
   },
   {

@@ -8,7 +8,16 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 import { useI18n } from "@/lib/i18n"
-import type { RevenuePoint } from "@/data/dashboard"
+
+/** One bar per day, oldest first (shaped from `GET /admin/dashboard/revenue`). */
+export interface RevenuePoint {
+  date: string
+  label: string
+  revenue: number
+  orders: number
+  highlighted?: boolean
+  isToday?: boolean
+}
 
 const chartConfig = {
   revenue: { label: "IQD", color: "var(--chart-2)" },

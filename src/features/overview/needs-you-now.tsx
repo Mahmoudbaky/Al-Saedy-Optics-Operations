@@ -4,27 +4,35 @@ import { Link } from "react-router"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { dashboardSummary as s } from "@/data/dashboard"
 import { useI18n } from "@/lib/i18n"
 
+interface NeedsYouNowProps {
+  prescriptionsToVerify: number
+  upcomingAppointments: number
+  unpaidCod: number
+  lowStock: number
+  lowStockThreshold: number
+  activeProducts: number
+}
+
 /** The three queues that block revenue today, each with a direct action. */
-function NeedsYouNow() {
+function NeedsYouNow({ prescriptionsToVerify, upcomingAppointments, unpaidCod, lowStock, lowStockThreshold, activeProducts }: NeedsYouNowProps) {
   const { t } = useI18n()
   const items = [
     {
       id: "rx",
       icon: FileTextIcon,
-      iconClass: "text-critical",
-      title: t("overview.rxToVerify", { n: s.prescriptionsToVerify }),
-      hint: t("overview.rxToVerifyHint", { scans: s.uploadedScansPending, typed: s.typedPending }),
+      iconClass: prescriptionsToVerify > 0 ? "text-critical" : "text-muted-foreground",
+      title: t("overview.rxToVerify", { n: prescriptionsToVerify }),
+      hint: t("overview.rxToVerifyHint", { n: upcomingAppointments }),
       action: t("overview.review"),
       to: "/prescriptions",
     },
     {
       id: "cod",
       icon: BanknoteIcon,
-      iconClass: "text-warning",
-      title: t("overview.codUnpaid", { n: s.unpaidCodDelivered }),
+      iconClass: unpaidCod > 0 ? "text-warning" : "text-muted-foreground",
+      title: t("overview.codUnpaid", { n: unpaidCod }),
       hint: t("overview.codUnpaidHint"),
       action: t("overview.open"),
       to: "/orders?view=unpaid_cod",
@@ -33,10 +41,10 @@ function NeedsYouNow() {
       id: "stock",
       icon: PackageXIcon,
       iconClass: "text-muted-foreground",
-      title: t("overview.lowStockTitle", { n: s.lowStockColours }),
-      hint: t("overview.lowStockHint"),
+      title: t("overview.lowStockTitle", { n: lowStock }),
+      hint: t("overview.lowStockHint", { n: activeProducts }),
       action: t("overview.restock"),
-      to: "/products?lowStock=3",
+      to: `/products?lowStock=${lowStockThreshold}`,
     },
   ]
 
