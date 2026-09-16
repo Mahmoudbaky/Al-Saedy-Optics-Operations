@@ -324,3 +324,45 @@ export interface ReviewPrescriptionInput {
   add?: string | null
   expiresOn?: string | null
 }
+
+/* ── Product write models ──────────────────────────────────────────── */
+
+export interface VariantInput {
+  colorHex: string
+  colorName?: { ar: string | null; en: string | null } | null
+  sku?: string | null
+  stock: number
+  sortOrder: number
+  isActive: boolean
+}
+
+export interface ImageInput {
+  url: string
+  alt?: string | null
+  sortOrder: number
+  /** Attaches the image to the variant with this colour (must exist on the product). */
+  variantColorHex?: string | null
+}
+
+export interface ProductInput {
+  slug?: string
+  code?: string | null
+  name: LocalizedString
+  description?: { ar: string | null; en: string | null } | null
+  note?: { ar: string | null; en: string | null } | null
+  categoryId: string
+  brandId?: string | null
+  price: number
+  compareAtPrice?: number | null
+  shape?: FrameShape | null
+  gender: Gender
+  specs?: FrameSpecs | null
+  supportsLensAddons: boolean
+  requiresPrescription: boolean
+  isBestSeller: boolean
+  isActive: boolean
+  variants: VariantInput[]
+  images: ImageInput[]
+}
+
+export type ProductPatch = Partial<Omit<ProductInput, "variants" | "images">>

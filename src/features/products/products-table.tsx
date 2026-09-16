@@ -1,4 +1,5 @@
-import { PackagePlusIcon, Trash2Icon } from "lucide-react"
+import { PackagePlusIcon, PencilIcon, Trash2Icon } from "lucide-react"
+import { Link } from "react-router"
 
 import type { PageMeta } from "@/api/types"
 import {
@@ -116,7 +117,9 @@ function ProductsTable({
                 </TableCell>
                 <TableCell className="max-w-0">
                   <div className="flex flex-col gap-0.5">
-                    <span className="truncate font-medium">{product.name[locale]}</span>
+                    <Link to={`/products/${product.id}/edit`} className="truncate font-medium hover:underline">
+                      {product.name[locale]}
+                    </Link>
                     <span className="truncate text-[11px] text-muted-foreground">
                       {product.code ? `${product.code} · ` : ""}
                       <span lang={locale === "ar" ? "en" : "ar"}>{locale === "ar" ? product.name.en : product.name.ar}</span>
@@ -181,6 +184,10 @@ function ProductsTable({
                 <TableCell className="pe-3 text-center">
                   <RowActionsMenu>
                     <DropdownMenuGroup>
+                      <DropdownMenuItem render={<Link to={`/products/${product.id}/edit`} />}>
+                        <PencilIcon />
+                        {t("products.edit")}
+                      </DropdownMenuItem>
                       {product.variants[0] ? (
                         <DropdownMenuItem onClick={() => onAdjustStock(product, product.variants[0]!)}>
                           <PackagePlusIcon />

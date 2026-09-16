@@ -1,6 +1,6 @@
 import * as React from "react"
-import { SearchIcon, Trash2Icon } from "lucide-react"
-import { useSearchParams } from "react-router"
+import { PlusIcon, SearchIcon, Trash2Icon } from "lucide-react"
+import { Link, useSearchParams } from "react-router"
 
 import {
   useApiErrorMessage,
@@ -189,6 +189,10 @@ function ProductsPage() {
               {t("products.showInactive")}
             </FieldLabel>
           </Field>
+          <Button className="ms-auto" render={<Link to="/products/new" />}>
+            <PlusIcon data-icon="inline-start" />
+            {t("products.new")}
+          </Button>
         </div>
 
         {selectedIds.size > 0 ? (

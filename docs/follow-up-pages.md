@@ -85,22 +85,12 @@ Page: two tabs, each a small table + create/edit sheet.
 `Review = { id, productId, rating: 1–5, comment, isVisible, createdAt, user: { id, name, image } }`.
 Page: list with rating, comment, product link; hide/show toggle; delete with confirm. Hiding recomputes the product's rating.
 
-## 7. Product create / edit form (products page is list-only today)
+## 7. Product create / edit form — ✅ done (2026-09-16)
 
-| Method | Path | Body | Returns |
-|---|---|---|---|
-| POST | `/admin/products` | `{ slug?, code?, name: {ar,en}, description?, note?, categoryId, brandId?, price, compareAtPrice?, shape?: rectangle\|round\|oval\|aviator\|square\|half-rim\|cat-eye, gender: men\|women\|unisex\|kids, specs?: { lensWidth?, bridge?, templeLength?, frameWidth?, lensHeight?, weightGrams?, material? }, supportsLensAddons, requiresPrescription, isBestSeller, isActive, variants: [{ colorHex, colorName?: {ar,en}, sku?, stock, sortOrder, isActive }] (min 1), images: [{ url, alt?, sortOrder, variantColorHex? }] }` | 201 `ProductDetail` |
-| PATCH | `/admin/products/:id` | same minus `variants`/`images`, partial | `ProductDetail` |
-| POST / PATCH / DELETE | `/admin/products/:id/variants[/:variantId]` | variant body | `ProductDetail` |
-| PATCH | `/admin/products/:id/variants/:variantId/stock` | `{ stock }` **or** `{ delta }` | `{ variantId, stock }` |
-| POST | `/admin/products/:id/images` | `{ images: [...] }` | `ProductDetail` |
-| PUT | `/admin/products/:id/images/order` | `{ imageIds: uuid[] }` | `ProductDetail` |
-| DELETE | `/admin/products/:id/images/:imageId` | — | `ProductDetail` |
-
-Images: uploads go through UploadThing (`/api/uploadthing`, route `productImage`, admin-only, ≤4 MB × 8) using
-`generateReactHelpers` from `uploadthing/react`; the returned `ufsUrl`s are then registered with the images endpoint.
-**`UPLOADTHING_TOKEN` is empty in the backend `.env`, so the upload route is not mounted yet** — until it is set,
-accept an image URL field in the form instead.
+Implemented in `src/features/products/product-form-page.tsx` (`/products/new`, `/products/:id/edit`) with
+UploadThing uploads via `src/lib/uploadthing.ts` (`productImage` route, admin cookie). Remaining polish ideas:
+drag-to-reorder images (currently up/down buttons), per-image PATCH on the backend (alt/colour edits are
+re-added today), and a "duplicate product" action.
 
 ## 8. Nice-to-haves already supported by the API
 

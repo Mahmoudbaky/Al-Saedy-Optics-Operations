@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { api } from "./client"
 import { qk } from "./query-keys"
-import type { Brand, BulkProductAction, Category, Product, ProductListQuery } from "./types"
+import type { Brand, BulkProductAction, Category, ImageInput, Product, ProductInput, ProductListQuery, ProductPatch, VariantInput } from "./types"
 
 export function useProducts(params: ProductListQuery) {
   return useQuery({
@@ -28,13 +28,70 @@ function useInvalidateProducts() {
   }
 }
 
-export function useUpdateProduct() {
-  const invalidate = useInvalidateProducts()
-  return useMutation({
-    mutationFn: ({ id, ...patch }: { id: string; isActive?: boolean; isBestSeller?: boolean }) =>
-      api.patch<Product>(`/admin/products/${id}`, patch),
-    onSuccess: invalidate,
+/** `GET /admin/products/:id` – full detail for the edit form. */
+export function useProductDetail(id: string | undefined) {
+  return useQuery({
+    queryKey: qk.products.detail(id ?? ""),
+    queryFn: () => api.get<Product>(`/admin/products/${id}`),
+    enabled: !!id,
   })
+}
+
+/** Product mutations that return the updated detail: cache it and refresh the lists. */
+function useProductMutation<TVars>(mutationFn: (vars: TVars) => Promise<Product>) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn,
+    onSuccess: (product) => {
+      qc.setQueryData(qk.products.detail(product.id), product)
+      qc.invalidateQueries({ queryKey: qk.products.all })
+      qc.invalidateQueries({ queryKey: qk.dashboard.overview })
+    },
+  })
+}
+
+export function useCreateProduct() {
+  return useProductMutation((input: ProductInput) => api.post<Product>("/admin/products", input))
+}
+
+export function useUpdateProduct() {
+  return useProductMutation(({ id, ...patch }: ProductPatch & { id: string }) => api.patch<Product>(`/admin/products/${id}`, patch))
+}
+
+export function useAddVariant() {
+  return useProductMutation(({ productId, ...input }: VariantInput & { productId: string }) =>
+    api.post<Product>(`/admin/products/${productId}/variants`, input)
+  )
+}
+
+export function useUpdateVariant() {
+  return useProductMutation(({ productId, variantId, ...patch }: Partial<VariantInput> & { productId: string; variantId: string }) =>
+    api.patch<Product>(`/admin/products/${productId}/variants/${variantId}`, patch)
+  )
+}
+
+export function useDeleteVariant() {
+  return useProductMutation(({ productId, variantId }: { productId: string; variantId: string }) =>
+    api.delete<Product>(`/admin/products/${productId}/variants/${variantId}`)
+  )
+}
+
+export function useAddImages() {
+  return useProductMutation(({ productId, images }: { productId: string; images: ImageInput[] }) =>
+    api.post<Product>(`/admin/products/${productId}/images`, { images })
+  )
+}
+
+export function useReorderImages() {
+  return useProductMutation(({ productId, imageIds }: { productId: string; imageIds: string[] }) =>
+    api.put<Product>(`/admin/products/${productId}/images/order`, { imageIds })
+  )
+}
+
+export function useDeleteImage() {
+  return useProductMutation(({ productId, imageId }: { productId: string; imageId: string }) =>
+    api.delete<Product>(`/admin/products/${productId}/images/${imageId}`)
+  )
 }
 
 export function useBulkProductAction() {
